@@ -1,0 +1,24 @@
+=== Исходное состояние (автобус :v, активный рейс :active_trip)
+ vehicle_status | planned_trips | active_trip_status | open_incidents 
+----------------+---------------+--------------------+----------------
+ IN_SERVICE     |           442 | IN_PROGRESS        |              1
+
+=== Сценарий 1: ROLLBACK. Шаг 4 ссылается на несуществующего пользователя (FK), всё откатывается
+--- внутри транзакции (шаги 1-3 выполнены):
+ vehicle_status | planned_trips | active_trip_status | open_incidents 
+----------------+---------------+--------------------+----------------
+ OUT_OF_SERVICE |             0 | COMPLETED          |              1
+
+psql:sql/tx_decommission.sql:31: ERROR:  insert or update on table "incidents" violates foreign key constraint "fk_incidents_resolved_by"
+DETAIL:  Key (resolved_by_user_id)=(9999) is not present in table "users".
+--- после ROLLBACK (ничего не изменилось):
+ vehicle_status | planned_trips | active_trip_status | open_incidents 
+----------------+---------------+--------------------+----------------
+ IN_SERVICE     |           442 | IN_PROGRESS        |              1
+
+=== Сценарий 2: COMMIT. Те же шаги с существующим пользователем
+--- после COMMIT:
+ vehicle_status | planned_trips | active_trip_status | open_incidents 
+----------------+---------------+--------------------+----------------
+ OUT_OF_SERVICE |             0 | COMPLETED          |              0
+

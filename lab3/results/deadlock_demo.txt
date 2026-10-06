@@ -1,0 +1,33 @@
+
+=== Без исправления: T1 блокирует A затем B, T2 — B затем A (автобусы 3 и 4)
+[ 0.01s] T1: SELECT ... FROM vehicles WHERE id=3 FOR UPDATE
+[ 0.01s] T2: SELECT ... FROM vehicles WHERE id=4 FOR UPDATE
+[ 0.51s] T2: SELECT ... FROM vehicles WHERE id=3 FOR UPDATE
+[ 0.51s] T1: SELECT ... FROM vehicles WHERE id=4 FOR UPDATE
+[ 1.51s] T1: ОШИБКА SQLSTATE 40P01 (), ROLLBACK
+[ 1.51s] T1:   Process 271 waits for ShareLock on transaction 1060; blocked by process 272.
+Process 272 waits for ShareLock on transaction 1059; blocked by process 271.
+[ 1.51s] T2: обе строки заблокированы, COMMIT
+
+--- Лог сервера PostgreSQL (строки про deadlock):
+2026-10-06 06:32:30.137 UTC [39] STATEMENT:  SELECT version_id, is_applied from goose_db_version ORDER BY id DESC
+2026-10-06 06:34:37.038 UTC [55] CONTEXT:  while scanning block 8938 of relation "public.trips"
+2026-10-06 06:35:44.562 UTC [104] CONTEXT:  while scanning block 32525 of relation "public.trips"
+2026-10-06 06:35:44.565 UTC [105] STATEMENT:  VACUUM (ANALYZE) trips
+2026-10-06 06:36:37.004 UTC [256] STATEMENT:  UPDATE incidents SET status = 'RESOLVED', resolved_at = CURRENT_TIMESTAMP, resolved_by_user_id = 9999
+2026-10-06 06:37:53.267 UTC [263] STATEMENT:  UPDATE trips SET status='IN_PROGRESS', actual_start=CURRENT_TIMESTAMP WHERE id=$1 AND status='PLANNED'
+2026-10-06 06:38:02.339 UTC [271] ERROR:  deadlock detected
+2026-10-06 06:38:02.339 UTC [271] DETAIL:  Process 271 waits for ShareLock on transaction 1060; blocked by process 272.
+	Process 272 waits for ShareLock on transaction 1059; blocked by process 271.
+	Process 271: SELECT id FROM vehicles WHERE id=$1 FOR UPDATE
+	Process 272: SELECT id FROM vehicles WHERE id=$1 FOR UPDATE
+2026-10-06 06:38:02.339 UTC [271] CONTEXT:  while locking tuple (0,4) in relation "vehicles"
+2026-10-06 06:38:02.339 UTC [271] STATEMENT:  SELECT id FROM vehicles WHERE id=$1 FOR UPDATE
+
+=== Исправление: оба берут блокировки в порядке возрастания id (автобусы 3 и 4)
+[ 0.01s] T2: SELECT ... FROM vehicles WHERE id=3 FOR UPDATE
+[ 0.01s] T1: SELECT ... FROM vehicles WHERE id=3 FOR UPDATE
+[ 0.51s] T1: SELECT ... FROM vehicles WHERE id=4 FOR UPDATE
+[ 0.51s] T1: обе строки заблокированы, COMMIT
+[ 1.02s] T2: SELECT ... FROM vehicles WHERE id=4 FOR UPDATE
+[ 1.02s] T2: обе строки заблокированы, COMMIT

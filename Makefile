@@ -23,3 +23,30 @@ migrate-down:
 migrate-status:
 	goose -dir $(MIGRATIONS_DIR) postgres "$(DATABASE_URL)" status
 
+
+# ---- ЛР3 ----
+LAB3_DB_URL ?= postgres://postgres:postgres@localhost:5432/trans-pulse_lab3?sslmode=disable
+
+.PHONY: lab3-db gen-dev gen-load lab3-stats lab3-race lab3-deadlock lab3-loadbench
+
+lab3-db:
+	psql "postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable" -c 'CREATE DATABASE "trans-pulse_lab3"'
+	goose -dir ./migrations postgres "$(LAB3_DB_URL)" up
+
+gen-dev:
+	LAB3_DATABASE_URL="$(LAB3_DB_URL)" go run ./cmd/gen --mode dev --seed 42
+
+gen-load:
+	LAB3_DATABASE_URL="$(LAB3_DB_URL)" go run ./cmd/gen --mode load --seed 42
+
+lab3-stats:
+	psql "$(LAB3_DB_URL)" -f lab3/sql/stats.sql
+
+lab3-race:
+	LAB3_DATABASE_URL="$(LAB3_DB_URL)" go run ./cmd/lab3 race
+
+lab3-deadlock:
+	LAB3_DATABASE_URL="$(LAB3_DB_URL)" go run ./cmd/lab3 deadlock
+
+lab3-loadbench:
+	LAB3_DATABASE_URL="$(LAB3_DB_URL)" go run ./cmd/lab3 loadbench

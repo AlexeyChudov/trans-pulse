@@ -1,0 +1,45 @@
+                                                                                                                QUERY PLAN                                                                                                                 
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=14165.78..14165.81 rows=10 width=58) (actual time=54.311..59.585 rows=10 loops=1)
+   Buffers: shared hit=47169
+   ->  Sort  (cost=14165.78..14165.91 rows=50 width=58) (actual time=54.310..59.583 rows=10 loops=1)
+         Sort Key: (round(((100.0 * (count(*) FILTER (WHERE ((t.actual_start - t.planned_start) > '00:05:00'::interval)))::numeric) / (count(*))::numeric), 1)) DESC
+         Sort Method: top-N heapsort  Memory: 26kB
+         Buffers: shared hit=47169
+         ->  Finalize GroupAggregate  (cost=14151.16..14164.70 rows=50 width=58) (actual time=54.247..59.554 rows=50 loops=1)
+               Group Key: r.id
+               Buffers: shared hit=47166
+               ->  Gather Merge  (cost=14151.16..14162.83 rows=100 width=26) (actual time=54.239..59.523 rows=150 loops=1)
+                     Workers Planned: 2
+                     Workers Launched: 2
+                     Buffers: shared hit=47166
+                     ->  Sort  (cost=13151.14..13151.26 rows=50 width=26) (actual time=51.036..51.039 rows=50 loops=3)
+                           Sort Key: r.id
+                           Sort Method: quicksort  Memory: 27kB
+                           Buffers: shared hit=47166
+                           Worker 0:  Sort Method: quicksort  Memory: 27kB
+                           Worker 1:  Sort Method: quicksort  Memory: 27kB
+                           ->  Partial HashAggregate  (cost=13149.23..13149.73 rows=50 width=26) (actual time=50.998..51.004 rows=50 loops=3)
+                                 Group Key: r.id
+                                 Batches: 1  Memory Usage: 24kB
+                                 Buffers: shared hit=47150
+                                 Worker 0:  Batches: 1  Memory Usage: 24kB
+                                 Worker 1:  Batches: 1  Memory Usage: 24kB
+                                 ->  Hash Join  (cost=2.68..11997.81 rows=92113 width=26) (actual time=0.068..36.360 rows=74828 loops=3)
+                                       Hash Cond: (t.route_id = r.id)
+                                       Buffers: shared hit=47150
+                                       ->  Parallel Index Only Scan using idx_trips_status_start_cov on trips t  (cost=0.56..11733.40 rows=92113 width=24) (actual time=0.028..22.406 rows=74828 loops=3)
+                                             Index Cond: ((status = 'COMPLETED'::text) AND (planned_start >= '2026-09-01 00:00:00+00'::timestamp with time zone) AND (planned_start < '2026-10-01 00:00:00+00'::timestamp with time zone))
+                                             Heap Fetches: 2437
+                                             Buffers: shared hit=47141
+                                       ->  Hash  (cost=1.50..1.50 rows=50 width=10) (actual time=0.022..0.023 rows=50 loops=3)
+                                             Buckets: 1024  Batches: 1  Memory Usage: 11kB
+                                             Buffers: shared hit=3
+                                             ->  Seq Scan on routes r  (cost=0.00..1.50 rows=50 width=10) (actual time=0.008..0.012 rows=50 loops=3)
+                                                   Buffers: shared hit=3
+ Planning:
+   Buffers: shared hit=250
+ Planning Time: 1.156 ms
+ Execution Time: 59.722 ms
+(41 rows)
+

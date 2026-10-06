@@ -1,0 +1,44 @@
+                                                                         QUERY PLAN                                                                         
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=10437.01..10438.18 rows=10 width=48) (actual time=16.542..18.769 rows=10 loops=1)
+   Buffers: shared hit=5661 read=3662
+   ->  Gather Merge  (cost=10437.01..10439.11 rows=18 width=48) (actual time=16.541..18.766 rows=10 loops=1)
+         Workers Planned: 2
+         Workers Launched: 2
+         Buffers: shared hit=5661 read=3662
+         ->  Sort  (cost=9436.99..9437.01 rows=9 width=48) (actual time=14.083..14.086 rows=10 loops=3)
+               Sort Key: i.created_at DESC
+               Sort Method: top-N heapsort  Memory: 26kB
+               Buffers: shared hit=5661 read=3662
+               Worker 0:  Sort Method: top-N heapsort  Memory: 27kB
+               Worker 1:  Sort Method: top-N heapsort  Memory: 27kB
+               ->  Nested Loop  (cost=2.34..9436.85 rows=9 width=48) (actual time=0.863..14.017 rows=67 loops=3)
+                     Buffers: shared hit=5645 read=3662
+                     ->  Hash Join  (cost=2.07..9434.24 rows=9 width=50) (actual time=0.837..13.723 rows=67 loops=3)
+                           Hash Cond: (t.route_id = r.id)
+                           Buffers: shared hit=5037 read=3662
+                           ->  Nested Loop  (cost=0.43..9431.31 rows=451 width=56) (actual time=0.097..13.214 rows=371 loops=3)
+                                 Buffers: shared hit=4938 read=3662
+                                 ->  Parallel Seq Scan on incidents i  (cost=0.00..5754.88 rows=451 width=31) (actual time=0.067..10.044 rows=371 loops=3)
+                                       Filter: (((status)::text = 'OPEN'::text) AND ((type)::text = 'DELAY'::text))
+                                       Rows Removed by Filter: 85436
+                                       Buffers: shared hit=484 read=3662
+                                 ->  Index Scan using trips_pkey on trips t  (cost=0.43..8.15 rows=1 width=41) (actual time=0.008..0.008 rows=1 loops=1113)
+                                       Index Cond: (id = i.trip_id)
+                                       Buffers: shared hit=4454
+                           ->  Hash  (cost=1.62..1.62 rows=1 width=10) (actual time=0.020..0.020 rows=1 loops=3)
+                                 Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                                 Buffers: shared hit=3
+                                 ->  Seq Scan on routes r  (cost=0.00..1.62 rows=1 width=10) (actual time=0.010..0.013 rows=1 loops=3)
+                                       Filter: ((number)::text = '1'::text)
+                                       Rows Removed by Filter: 49
+                                       Buffers: shared hit=3
+                     ->  Index Scan using vehicles_pkey on vehicles v  (cost=0.27..0.29 rows=1 width=14) (actual time=0.003..0.003 rows=1 loops=202)
+                           Index Cond: (id = t.vehicle_id)
+                           Buffers: shared hit=608
+ Planning:
+   Buffers: shared hit=409
+ Planning Time: 2.256 ms
+ Execution Time: 18.874 ms
+(40 rows)
+

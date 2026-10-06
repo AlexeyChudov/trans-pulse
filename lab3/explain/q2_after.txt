@@ -1,0 +1,33 @@
+                                                                                 QUERY PLAN                                                                                  
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.98..5313.56 rows=10 width=48) (actual time=0.064..0.170 rows=10 loops=1)
+   Buffers: shared hit=200
+   ->  Nested Loop  (cost=0.98..12219.90 rows=23 width=48) (actual time=0.063..0.168 rows=10 loops=1)
+         Buffers: shared hit=200
+         ->  Nested Loop  (cost=0.71..12213.23 rows=23 width=50) (actual time=0.054..0.144 rows=10 loops=1)
+               Join Filter: (r.id = t.route_id)
+               Rows Removed by Join Filter: 29
+               Buffers: shared hit=170
+               ->  Nested Loop  (cost=0.71..12194.67 rows=1129 width=56) (actual time=0.033..0.109 rows=39 loops=1)
+                     Buffers: shared hit=169
+                     ->  Index Scan using idx_incidents_open_type_created on incidents i  (cost=0.28..3005.44 rows=1129 width=31) (actual time=0.020..0.030 rows=39 loops=1)
+                           Index Cond: ((type)::text = 'DELAY'::text)
+                           Buffers: shared hit=13
+                     ->  Index Scan using trips_pkey on trips t  (cost=0.43..8.14 rows=1 width=41) (actual time=0.002..0.002 rows=1 loops=39)
+                           Index Cond: (id = i.trip_id)
+                           Buffers: shared hit=156
+               ->  Materialize  (cost=0.00..1.63 rows=1 width=10) (actual time=0.001..0.001 rows=1 loops=39)
+                     Buffers: shared hit=1
+                     ->  Seq Scan on routes r  (cost=0.00..1.62 rows=1 width=10) (actual time=0.016..0.020 rows=1 loops=1)
+                           Filter: ((number)::text = '1'::text)
+                           Rows Removed by Filter: 49
+                           Buffers: shared hit=1
+         ->  Index Scan using vehicles_pkey on vehicles v  (cost=0.27..0.29 rows=1 width=14) (actual time=0.002..0.002 rows=1 loops=10)
+               Index Cond: (id = t.vehicle_id)
+               Buffers: shared hit=30
+ Planning:
+   Buffers: shared hit=450
+ Planning Time: 2.119 ms
+ Execution Time: 0.236 ms
+(29 rows)
+

@@ -1,0 +1,2 @@
+q1 after median_ms=59.722 min_ms=50.073 max_ms=69.329 runs=[68.644 50.073 69.329 59.722 62.112 53.635 51.931] Buffers: shared hit=47169
+q2 after median_ms=0.236 min_ms=0.206 max_ms=0.688 runs=[0.239 0.688 0.222 0.206 0.236 0.249 0.225] Buffers: shared hit=200
