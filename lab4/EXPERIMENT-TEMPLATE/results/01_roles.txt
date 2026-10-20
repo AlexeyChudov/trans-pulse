@@ -1,0 +1,45 @@
+== 1. Роли кластера и их права (rolsuper = суперпользователь)
+    rolname     | rolsuper | rolcreaterole | rolcreatedb | rolreplication | rolcanlogin 
+----------------+----------+---------------+-------------+----------------+-------------
+ course_admin   | t        | t             | t           | t              | t
+ course_analyst | f        | f             | f           | f              | t
+ course_app     | f        | f             | f           | f              | t
+ replicator     | f        | f             | f           | t              | t
+(4 rows)
+
+== 2. Приложение работает под ролью course_app: суперпользователем не является, привилегированных операций выполнить не может
+  course_app: rolsuper = f
+  course_app     CREATE ROLE hacker LOGIN SUPERUSER                         -> ЗАПРЕЩЕНО (permission denied to create role)
+  course_app     ALTER SYSTEM SET work_mem = '1GB'                          -> ЗАПРЕЩЕНО (permission denied to set parameter "work_mem")
+  course_app     COPY routes TO PROGRAM 'id'                                -> ЗАПРЕЩЕНО (permission denied to COPY to or from an external program)
+  course_app     SELECT pg_read_file('/etc/passwd')                         -> ЗАПРЕЩЕНО (permission denied for function pg_read_file)
+
+== 3. course_app (приложение): данные можно, структуру нельзя
+  course_app     SELECT count(*) FROM routes                                -> РАЗРЕШЕНО
+  course_app     INSERT INTO replication_probe (marker) VALUES ('roles-demo-' || clock_timestamp()) -> РАЗРЕШЕНО
+  course_app     UPDATE vehicles SET model = model WHERE id = 1             -> РАЗРЕШЕНО
+  course_app     DROP TABLE routes                                          -> ЗАПРЕЩЕНО (must be owner of table routes)
+  course_app     TRUNCATE trips                                             -> ЗАПРЕЩЕНО (permission denied for table trips)
+  course_app     ALTER TABLE routes ADD COLUMN x int                        -> ЗАПРЕЩЕНО (must be owner of table routes)
+  course_app     DELETE FROM incidents WHERE id = 1                         -> ЗАПРЕЩЕНО (permission denied for table incidents)
+  course_app     SELECT * FROM audit_log                                    -> ЗАПРЕЩЕНО (permission denied for table audit_log)
+
+== 4. course_analyst (аналитик): только чтение, без хэшей паролей
+  course_analyst SELECT count(*) FROM trips                                 -> РАЗРЕШЕНО
+  course_analyst SELECT login, role FROM users LIMIT 1                      -> РАЗРЕШЕНО
+  course_analyst SELECT password_hash FROM users LIMIT 1                    -> ЗАПРЕЩЕНО (permission denied for table users)
+  course_analyst INSERT INTO routes (number, name) VALUES ('999','x')       -> ЗАПРЕЩЕНО (permission denied for table routes)
+  course_analyst UPDATE vehicles SET model = 'x'                            -> ЗАПРЕЩЕНО (permission denied for table vehicles)
+  course_analyst DELETE FROM trips                                          -> ЗАПРЕЩЕНО (permission denied for table trips)
+  course_analyst DROP TABLE routes                                          -> ЗАПРЕЩЕНО (must be owner of table routes)
+
+== 5. course_admin (администратор): управляет структурой, ролями и журналом
+  course_admin   SELECT count(*) FROM audit_log                             -> РАЗРЕШЕНО
+  course_admin   CREATE TABLE tmp_check (id int)                            -> РАЗРЕШЕНО
+  course_admin   DROP TABLE tmp_check                                       -> РАЗРЕШЕНО
+  course_admin   CREATE ROLE tmp_role                                       -> РАЗРЕШЕНО
+  course_admin   DROP ROLE tmp_role                                         -> РАЗРЕШЕНО
+
+== 6. SSL: небезопасное подключение отклоняется
+sslmode=disable : psql: error: connection to server at "127.0.0.1", port 55432 failed: FATAL:  pg_hba.conf rejects connection for host "172.22.0.1", user "course_app", database "course_app", no encryption
+sslmode=require : подключено, SSL=true

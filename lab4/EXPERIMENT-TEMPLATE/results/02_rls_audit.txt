@@ -1,0 +1,31 @@
+Открытый инцидент для опыта: 1; уже закрытый: 29. Приложение работает от имени диспетчера с id=3 (user03).
+
+== RLS-1. Закрыть инцидент от ЧУЖОГО имени (resolved_by = 4)
+  course_app     SET app.user_id = '3'; UPDATE incidents SET status='RESOLVED', resolved_at=now(), resolved_by_user_id=4 WHERE id=1 -> ЗАПРЕЩЕНО (new row violates row-level security policy for table "incidents")
+== RLS-2. Закрыть инцидент, не сообщив, кто пользователь (app.user_id не задан)
+  course_app     UPDATE incidents SET status='RESOLVED', resolved_at=now(), resolved_by_user_id=3 WHERE id=1 -> ЗАПРЕЩЕНО (new row violates row-level security policy for table "incidents")
+== RLS-3. Создать инцидент сразу в статусе RESOLVED
+  course_app     INSERT INTO incidents (trip_id,type,status,resolved_at,resolved_by_user_id) VALUES (1,'DELAY','RESOLVED',now(),3) -> ЗАПРЕЩЕНО (new row violates row-level security policy for table "incidents")
+== RLS-4. Изменить уже закрытый инцидент
+  затронуто строк: 0
+== RLS-5. Закрыть инцидент от СВОЕГО имени (resolved_by = 3) — разрешено
+  course_app     SET app.user_id = '3'; UPDATE incidents SET status='RESOLVED', resolved_at=now(), resolved_by_user_id=3 WHERE id=1 -> РАЗРЕШЕНО
+== RLS-6. Аналитик инцидент прочитать может, изменить нет
+  course_analyst SELECT count(*) FROM incidents WHERE id=1                  -> РАЗРЕШЕНО
+  course_analyst UPDATE incidents SET description='x' WHERE id=1            -> ЗАПРЕЩЕНО (permission denied for table incidents)
+
+== Аудит. Приложение (диспетчер 3) делает критические операции
+  course_app     SET app.user_id='3'; UPDATE vehicles SET status='OUT_OF_SERVICE' WHERE id=200 -> РАЗРЕШЕНО
+  course_app     SET app.user_id='3'; UPDATE trips SET status='CANCELLED' WHERE id=94 -> РАЗРЕШЕНО
+
+== Журнал audit_log (читает администратор)
+ id |   time   |  db_user   | app_user | table_name | row_id |      action       | old_value  |   new_value    
+----+----------+------------+----------+------------+--------+-------------------+------------+----------------
+  1 | 12:39:21 | course_app | 3        | incidents  |      1 | INCIDENT_RESOLVED | OPEN       | RESOLVED
+  2 | 12:39:22 | course_app | 3        | vehicles   |    200 | STATUS_CHANGE     | IN_SERVICE | OUT_OF_SERVICE
+  3 | 12:39:22 | course_app | 3        | trips      |     94 | TRIP_CANCELLED    | PLANNED    | CANCELLED
+(3 rows)
+
+== Приложение изменить или стереть журнал не может
+  course_app     DELETE FROM audit_log                                      -> ЗАПРЕЩЕНО (permission denied for table audit_log)
+  course_app     UPDATE audit_log SET app_user='9'                          -> ЗАПРЕЩЕНО (permission denied for table audit_log)

@@ -1,0 +1,22 @@
+[19:40:03] Останавливаем replica (docker compose stop replica)
+[19:40:10] primary видит реплику?
+ подключённых_реплик 
+---------------------
+                   0
+(1 row)
+
+ slot_name | active 
+-----------+--------
+(0 rows)
+
+записей-проб на primary за время простоя replica продолжает расти: 12
+[19:40:13] Запускаем replica обратно
+[19:40:21] Replica догнала primary?
+ application_name |   state   | sync_state |   replay_lag    
+------------------+-----------+------------+-----------------
+ course_replica   | streaming | async      | 00:00:00.000869
+(1 row)
+
+строк replication_probe: primary=22 replica=22
+
+== Поведение приложения (журнал results/app_log_replica_down.txt): записей OK=20, FAIL=0

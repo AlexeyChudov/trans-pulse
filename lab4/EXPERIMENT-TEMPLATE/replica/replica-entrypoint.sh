@@ -51,4 +51,4 @@ if [ ! -s "$PGDATA/PG_VERSION" ]; then
     --progress
 fi
 
-exec docker-entrypoint.sh postgres -c hot_standby=on
+exec docker-entrypoint.sh postgres -c hot_standby=on -c cluster_name="$REPLICA_APPLICATION_NAME"

@@ -1,0 +1,39 @@
+Аналитик подключается к replica (порт 55433):
+  это replica (pg_is_in_recovery): t
+== Отчёт Q1 (доля опозданий по маршрутам) на replica
+Timing is on.
+ route | trips_done | delayed | delayed_pct 
+-------+------------+---------+-------------
+ 33    |       1071 |     255 |        23.8
+ 36    |        933 |     222 |        23.8
+ 27    |       1333 |     316 |        23.7
+ 19    |       2172 |     496 |        22.8
+ 20    |       1818 |     401 |        22.1
+ 34    |        980 |     213 |        21.7
+ 37    |        940 |     203 |        21.6
+ 38    |        980 |     197 |        20.1
+ 7     |       7506 |    1437 |        19.1
+ 50    |        696 |     133 |        19.1
+(10 rows)
+
+Time: 71.172 ms
+== Отчёт Q5 (скорость закрытия инцидентов) на replica
+Timing is on.
+ login  |     type     | resolved | avg_min | median_min 
+--------+--------------+----------+---------+------------
+ user03 | DELAY        |    57821 |     8.5 |        6.0
+ user04 | DELAY        |    20492 |     8.5 |        6.0
+ user03 | NO_TELEMETRY |    14560 |     8.5 |        6.0
+ user05 | DELAY        |    11270 |     8.5 |        6.0
+ user06 | DELAY        |     7148 |     8.6 |        6.1
+ user04 | NO_TELEMETRY |     5121 |     8.4 |        6.0
+ user07 | DELAY        |     5101 |     8.5 |        6.0
+ user08 | DELAY        |     4008 |     8.6 |        6.0
+ user09 | DELAY        |     3106 |     8.8 |        6.1
+ user05 | NO_TELEMETRY |     2806 |     8.2 |        6.0
+(10 rows)
+
+Time: 166.303 ms
+== Запись на replica невозможна даже случайно
+  course_analyst INSERT INTO routes (number, name) VALUES ('999','x')       -> ЗАПРЕЩЕНО (cannot execute INSERT in a read-only transaction)
+== Сессий аналитика на primary в это время: 0

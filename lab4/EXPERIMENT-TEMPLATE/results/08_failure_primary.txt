@@ -1,0 +1,40 @@
+[19:40:25] Эмулируем аварию: docker compose kill primary
+[19:40:31] ДИАГНОСТИКА: primary недоступен?
+127.0.0.1:55432 - no response
+[19:40:31] ДИАГНОСТИКА: что с replica (docker compose exec, локально внутри контейнера)
+pg_is_in_recovery=true
+связь с primary (pg_stat_wal_receiver): нет соединения
+[19:40:32] ВОССТАНОВЛЕНИЕ: переводим replica в primary (pg_promote)
+t
+
+== Хронология приложения (журнал results/app_log_primary_down.txt), только смены состояния:
+1792500021.792 19:40:21 OK id=23 node=primary
+1792500027.233 19:40:27 FAIL connection to server at "127.0.0.1", port 55432 failed: Connection refused
+1792500032.850 19:40:32 OK id=36 node=course_replica
+Простой приложения (первая ошибка -> первая успешная запись): 5.6 с (из них ~5 с мы сами «замечали» аварию до promote)
+
+== Проверка целостности на новом primary (бывшая replica, порт 55433)
+pg_is_in_recovery: f
+рейсов до аварии: 3000000, после: 3000000 (совпадает)
+последняя запись, подтверждённая приложением на старом primary: id=27; максимум на новом primary: id=39; потеряно записей: 0
+рейсов без маршрута или автобуса (ожидается 0): 0
+автобусов с двумя активными рейсами (ожидается 0): 0
+запись от имени приложения на новый primary: ok id=40
+Pager usage is off.
+ probe_count | first_probe_id | last_probe_id 
+-------------+----------------+---------------
+          32 |              1 |            40
+(1 row)
+
+ marker | duplicate_count 
+--------+-----------------
+
+== Возвращаем старый primary в строй как replica нового (свежая базовая копия с нового primary)
+старый primary теперь replica (pg_is_in_recovery): t
+ application_name |   state   |   replay_lag    
+------------------+-----------+-----------------
+ primary          | streaming | 00:00:00.000031
+(1 row)
+
+новая запись id=41 на новом primary видна на пересобранном узле: 1
+Роли поменялись: primary = порт 55433, replica = порт 55432. Для возврата к исходной схеме — scripts/reset.sh

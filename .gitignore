@@ -1,0 +1,5 @@
+.DS_Store
+# секреты и резервные копии не коммитим
+lab4/EXPERIMENT-TEMPLATE/.env
+lab4/EXPERIMENT-TEMPLATE/backups/
+*.dump

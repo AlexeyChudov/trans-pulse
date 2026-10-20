@@ -1,0 +1,36 @@
+ Volume sprint04_primary_data  Removed
+ Network sprint04_database_network  Removed
+ Network sprint04_database_network  Creating
+ Network sprint04_database_network  Created
+ Volume "sprint04_replica_data"  Creating
+ Volume "sprint04_replica_data"  Created
+ Volume "sprint04_primary_data"  Creating
+ Volume "sprint04_primary_data"  Created
+ Container sprint-04-postgresql-primary-1  Creating
+ Container sprint-04-postgresql-primary-1  Created
+ Container sprint-04-postgresql-replica-1  Creating
+ Container sprint-04-postgresql-replica-1  Created
+ Container sprint-04-postgresql-primary-1  Starting
+ Container sprint-04-postgresql-primary-1  Started
+ Container sprint-04-postgresql-primary-1  Waiting
+ Container sprint-04-postgresql-primary-1  Healthy
+ Container sprint-04-postgresql-replica-1  Starting
+ Container sprint-04-postgresql-replica-1  Started
+== миграции проекта (goose) от имени course_admin; роли создаёт шаблон, поэтому миграцию ролей не применяем
+2026/10/20 19:39:19 OK   20260920130922_init.sql (13.08ms)
+2026/10/20 19:39:19 OK   20260921132411_integrity_indexes.sql (1.82ms)
+2026/10/20 19:39:19 goose: successfully migrated database to version: 20260921132411
+== данные (режим dev)
+2026/10/20 19:39:19 сгенерировано за 24ms: trips=100000 incidents=8370
+2026/10/20 19:39:19 очистка таблиц в course_app
+2026/10/20 19:39:19   routes       20 строк
+2026/10/20 19:39:19   stops        300 строк
+2026/10/20 19:39:20   route_stops  220 строк
+2026/10/20 19:39:20   vehicles     200 строк
+2026/10/20 19:39:20   users        10 строк
+2026/10/20 19:39:20   trips        100000 строк
+2026/10/20 19:39:20   incidents    8370 строк
+2026/10/20 19:39:20 загрузка COPY: 716ms
+2026/10/20 19:39:20 готово: trips=100000 incidents=8370, всего 853ms
+== права, RLS, аудит
+== готово
