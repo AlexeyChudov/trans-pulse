@@ -3,9 +3,11 @@
 \set from '2026-09-01'
 \set to '2026-10-01'
 \set min_incidents 30
-SELECT v.fleet_number AS bus, v.model, v.status,
-       count(DISTINCT t.id) AS trips_with_incidents,
-       count(*) AS incidents
+SELECT v.fleet_number AS bus, 
+    v.model, 
+    v.status,
+    count(DISTINCT t.id) AS trips_with_incidents,
+    count(*) AS incidents
 FROM vehicles v
 JOIN trips t ON t.vehicle_id = v.id
 JOIN incidents i ON i.trip_id = t.id

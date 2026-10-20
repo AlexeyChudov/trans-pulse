@@ -1,8 +1,3 @@
-// Сценарии ЛР3 на живой БД: гонка, диагностика ожидания блокировки, deadlock, сравнение загрузки.
-//
-//	go run ./cmd/lab3 race
-//	go run ./cmd/lab3 deadlock
-//	go run ./cmd/lab3 loadbench
 package main
 
 import (
