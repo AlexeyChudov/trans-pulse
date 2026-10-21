@@ -1,14 +1,13 @@
-1792500021.792 19:40:21 OK id=23 node=primary
-1792500022.902 19:40:22 OK id=24 node=primary
-1792500023.992 19:40:24 OK id=25 node=primary
-1792500025.078 19:40:25 OK id=26 node=primary
-1792500026.158 19:40:26 OK id=27 node=primary
-1792500027.233 19:40:27 FAIL connection to server at "127.0.0.1", port 55432 failed: Connection refused
-1792500028.343 19:40:28 FAIL connection to server at "127.0.0.1", port 55432 failed: Connection refused
-1792500029.430 19:40:29 FAIL connection to server at "127.0.0.1", port 55432 failed: Connection refused
-1792500030.652 19:40:30 FAIL connection to server at "127.0.0.1", port 55432 failed: Connection refused
-1792500031.734 19:40:31 FAIL connection to server at "127.0.0.1", port 55432 failed: Connection refused
-1792500032.850 19:40:32 OK id=36 node=course_replica
-1792500033.938 19:40:34 OK id=37 node=course_replica
-1792500035.025 19:40:35 OK id=38 node=course_replica
-1792500036.110 19:40:36 OK id=39 node=course_replica
+1792552503.992 10:15:04 OK id=22
+1792552505.056 10:15:05 OK id=23
+1792552506.156 10:15:06 OK id=24
+1792552507.233 10:15:07 OK id=25
+1792552508.315 10:15:08 FAIL connection to server at "127.0.0.1", port 55432 failed: server closed the connection unexpectedly
+1792552509.503 10:15:09 FAIL connection to server at "127.0.0.1", port 55432 failed: Connection refused
+1792552510.590 10:15:10 FAIL connection to server at "127.0.0.1", port 55432 failed: Connection refused
+1792552511.669 10:15:11 FAIL connection to server at "127.0.0.1", port 55432 failed: Connection refused
+1792552512.751 10:15:12 FAIL connection to server at "127.0.0.1", port 55432 failed: Connection refused
+1792552513.811 10:15:13 OK id=36
+1792552514.884 10:15:14 OK id=37
+1792552515.960 10:15:16 OK id=38
+1792552517.069 10:15:17 OK id=39

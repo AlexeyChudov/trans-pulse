@@ -1,59 +1,89 @@
-== 1. Кто primary, кто replica (is_in_recovery: f = primary, t = replica)
-primary (порт 55432): f
-replica (порт 55433): t
-
-== 2. Статус на primary (шаблон: sql/01-primary-status.sql)
+== 1. Статус primary (sql/01-primary-status.sql): is_in_recovery = f, реплика подключена и в состоянии streaming
 Pager usage is off.
  database_name | connected_as | is_in_recovery | current_wal_lsn 
 ---------------+--------------+----------------+-----------------
- course_app    | course_admin | f              | 0/5312E58
+ course_app    | course_admin | f              | 0/5312E30
 (1 row)
 
  application_name | client_addr |   state   | sync_state | sent_lsn  | write_lsn | flush_lsn | replay_lsn 
 ------------------+-------------+-----------+------------+-----------+-----------+-----------+------------
- course_replica   | 172.22.0.3  | streaming | async      | 0/5312E58 | 0/5312E58 | 0/5312E58 | 0/5312E58
+ course_replica   | 172.22.0.3  | streaming | async      | 0/5312E30 | 0/5312E30 | 0/5312E30 | 0/5312E30
 (1 row)
 
-== 3. Запись пробы на primary от имени приложения (sql/02-create-probe.sql)
+== 2. Запись пробы на primary от имени приложения (sql/02-create-probe.sql)
 Pager usage is off.
- id |            marker             |          created_at           
-----+-------------------------------+-------------------------------
-  2 | probe-20261020-123922-391-140 | 2026-10-20 12:39:22.391103+00
+ id |            marker             |          created_at          
+----+-------------------------------+------------------------------
+  2 | probe-20261021-031412-751-140 | 2026-10-21 03:14:12.75183+00
 (1 row)
 
 INSERT 0 1
  primary_wal_lsn 
 -----------------
- 0/5312F80
+ 0/5312F58
 (1 row)
 
-== 4. Статус на replica (sql/03-replica-status.sql)
+== 3. Статус replica (sql/03-replica-status.sql): is_in_recovery = t, получение журнала идёт
 Pager usage is off.
  database_name | connected_as | is_in_recovery | last_received_lsn | last_replayed_lsn | time_since_last_replayed_transaction 
 ---------------+--------------+----------------+-------------------+-------------------+--------------------------------------
- course_app    | course_admin | t              | 0/5312F80         | 0/5312F80         | 00:00:01.058281
+ course_app    | course_admin | t              | 0/5312F58         | 0/5312F58         | 00:00:01.08384
 (1 row)
 
   status   | sender_host | sender_port | latest_end_lsn |        latest_end_time        
 -----------+-------------+-------------+----------------+-------------------------------
- streaming | primary     |        5432 | 0/5312F80      | 2026-10-20 12:39:22.391989+00
+ streaming | primary     |        5432 | 0/5312F58      | 2026-10-21 03:14:12.752314+00
 (1 row)
 
-== 5. Чтение проб на replica: новая запись пришла (sql/04-read-probes.sql)
+== 4. Чтение проб на replica (sql/04-read-probes.sql): новая проба на месте
 Pager usage is off.
  id |                  marker                  |          created_at           
 ----+------------------------------------------+-------------------------------
-  2 | probe-20261020-123922-391-140            | 2026-10-20 12:39:22.391103+00
-  1 | roles-demo-2026-10-20 12:39:21.109271+00 | 2026-10-20 12:39:21.109274+00
+  2 | probe-20261021-031412-751-140            | 2026-10-21 03:14:12.75183+00
+  1 | roles-demo-2026-10-21 03:14:11.564272+00 | 2026-10-21 03:14:11.564274+00
 (2 rows)
 
-== 6. Запись напрямую на replica запрещена
+== 5. Запись напрямую на replica запрещена
 ERROR:  cannot execute INSERT in a read-only transaction
 
-== 7. Сверка числа строк на обоих узлах
-routes             primary=20       replica=20
-stops              primary=300      replica=300
-vehicles           primary=200      replica=200
-trips              primary=100000   replica=100000
-incidents          primary=8370     replica=8370
-replication_probe  primary=2        replica=2
+== 6. Целостность на обоих узлах (sql/05-integrity-check.sql)
+primary:
+Pager usage is off.
+ probe_count | first_probe_id | last_probe_id 
+-------------+----------------+---------------
+           2 |              1 |             2
+(1 row)
+
+ marker | duplicate_count 
+--------+-----------------
+(0 rows)
+
+       constraint_name        | constraint_type 
+------------------------------+-----------------
+ 16388_16390_1_not_null       | CHECK
+ 16388_16390_2_not_null       | CHECK
+ 16388_16390_3_not_null       | CHECK
+ replication_probe_marker_key | UNIQUE
+ replication_probe_pkey       | PRIMARY KEY
+(5 rows)
+
+replica:
+Pager usage is off.
+ probe_count | first_probe_id | last_probe_id 
+-------------+----------------+---------------
+           2 |              1 |             2
+(1 row)
+
+ marker | duplicate_count 
+--------+-----------------
+(0 rows)
+
+       constraint_name        | constraint_type 
+------------------------------+-----------------
+ 16388_16390_1_not_null       | CHECK
+ 16388_16390_2_not_null       | CHECK
+ 16388_16390_3_not_null       | CHECK
+ replication_probe_marker_key | UNIQUE
+ replication_probe_pkey       | PRIMARY KEY
+(5 rows)
+

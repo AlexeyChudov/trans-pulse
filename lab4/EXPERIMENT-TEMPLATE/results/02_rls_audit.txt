@@ -21,9 +21,9 @@
 == Журнал audit_log (читает администратор)
  id |   time   |  db_user   | app_user | table_name | row_id |      action       | old_value  |   new_value    
 ----+----------+------------+----------+------------+--------+-------------------+------------+----------------
-  1 | 12:39:21 | course_app | 3        | incidents  |      1 | INCIDENT_RESOLVED | OPEN       | RESOLVED
-  2 | 12:39:22 | course_app | 3        | vehicles   |    200 | STATUS_CHANGE     | IN_SERVICE | OUT_OF_SERVICE
-  3 | 12:39:22 | course_app | 3        | trips      |     94 | TRIP_CANCELLED    | PLANNED    | CANCELLED
+  1 | 03:14:12 | course_app | 3        | incidents  |      1 | INCIDENT_RESOLVED | OPEN       | RESOLVED
+  2 | 03:14:12 | course_app | 3        | vehicles   |    200 | STATUS_CHANGE     | IN_SERVICE | OUT_OF_SERVICE
+  3 | 03:14:12 | course_app | 3        | trips      |     94 | TRIP_CANCELLED    | PLANNED    | CANCELLED
 (3 rows)
 
 == Приложение изменить или стереть журнал не может

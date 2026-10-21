@@ -16,7 +16,7 @@ Timing is on.
  50    |        696 |     133 |        19.1
 (10 rows)
 
-Time: 71.172 ms
+Time: 92.251 ms
 == Отчёт Q5 (скорость закрытия инцидентов) на replica
 Timing is on.
  login  |     type     | resolved | avg_min | median_min 
@@ -33,7 +33,7 @@ Timing is on.
  user05 | NO_TELEMETRY |     2806 |     8.2 |        6.0
 (10 rows)
 
-Time: 166.303 ms
+Time: 121.781 ms
 == Запись на replica невозможна даже случайно
   course_analyst INSERT INTO routes (number, name) VALUES ('999','x')       -> ЗАПРЕЩЕНО (cannot execute INSERT in a read-only transaction)
 == Сессий аналитика на primary в это время: 0

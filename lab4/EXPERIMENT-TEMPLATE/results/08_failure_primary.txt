@@ -1,40 +1,95 @@
-[19:40:25] Эмулируем аварию: docker compose kill primary
-[19:40:31] ДИАГНОСТИКА: primary недоступен?
+[10:15:07] Эмулируем аварию: docker compose kill primary
+== Диагностика: primary недоступен?
 127.0.0.1:55432 - no response
-[19:40:31] ДИАГНОСТИКА: что с replica (docker compose exec, локально внутри контейнера)
-pg_is_in_recovery=true
-связь с primary (pg_stat_wal_receiver): нет соединения
-[19:40:32] ВОССТАНОВЛЕНИЕ: переводим replica в primary (pg_promote)
+== Диагностика: состояние replica (sql/03-replica-status.sql): таблица wal receiver пуста — связи с primary нет
+Pager usage is off.
+ database_name | connected_as | is_in_recovery | last_received_lsn | last_replayed_lsn | time_since_last_replayed_transaction 
+---------------+--------------+----------------+-------------------+-------------------+--------------------------------------
+ course_app    | course_admin | t              | 0/5775DA08        | 0/5775DA08        | 00:00:06.255119
+(1 row)
+
+ status | sender_host | sender_port | latest_end_lsn | latest_end_time 
+--------+-------------+-------------+----------------+-----------------
+(0 rows)
+
+[10:15:13] ВОССТАНОВЛЕНИЕ: повышаем replica до primary (pg_promote)
 t
 
 == Хронология приложения (журнал results/app_log_primary_down.txt), только смены состояния:
-1792500021.792 19:40:21 OK id=23 node=primary
-1792500027.233 19:40:27 FAIL connection to server at "127.0.0.1", port 55432 failed: Connection refused
-1792500032.850 19:40:32 OK id=36 node=course_replica
-Простой приложения (первая ошибка -> первая успешная запись): 5.6 с (из них ~5 с мы сами «замечали» аварию до promote)
+1792552503.992 10:15:04 OK id=22
+1792552508.315 10:15:08 FAIL connection to server at "127.0.0.1", port 55432 failed: server closed the connection unexpectedly
+1792552513.811 10:15:13 OK id=36
+Простой приложения (первая ошибка -> первая успешная запись): 5.5 с (из них ~5 с мы сами «замечали» аварию до promote)
+Последняя запись, подтверждённая приложением на старом primary: id=25; максимум на новом primary: id=39; потеряно записей: 0
 
-== Проверка целостности на новом primary (бывшая replica, порт 55433)
-pg_is_in_recovery: f
-рейсов до аварии: 3000000, после: 3000000 (совпадает)
-последняя запись, подтверждённая приложением на старом primary: id=27; максимум на новом primary: id=39; потеряно записей: 0
-рейсов без маршрута или автобуса (ожидается 0): 0
-автобусов с двумя активными рейсами (ожидается 0): 0
-запись от имени приложения на новый primary: ok id=40
+== Новый primary: статус (sql/01-primary-status.sql): is_in_recovery = f
+Pager usage is off.
+ database_name | connected_as | is_in_recovery | current_wal_lsn 
+---------------+--------------+----------------+-----------------
+ course_app    | course_admin | f              | 0/5775EE20
+(1 row)
+
+ application_name | client_addr | state | sync_state | sent_lsn | write_lsn | flush_lsn | replay_lsn 
+------------------+-------------+-------+------------+----------+-----------+-----------+------------
+(0 rows)
+
+== Новый primary принимает запись от приложения (sql/02-create-probe.sql)
+Pager usage is off.
+ id |            marker             |          created_at           
+----+-------------------------------+-------------------------------
+ 40 | probe-20261021-031517-930-107 | 2026-10-21 03:15:17.930621+00
+(1 row)
+
+INSERT 0 1
+ primary_wal_lsn 
+-----------------
+ 0/5775EF48
+(1 row)
+
+== Целостность на новом primary (sql/05-integrity-check.sql)
 Pager usage is off.
  probe_count | first_probe_id | last_probe_id 
 -------------+----------------+---------------
-          32 |              1 |            40
+          30 |              1 |            40
 (1 row)
 
  marker | duplicate_count 
 --------+-----------------
+(0 rows)
 
-== Возвращаем старый primary в строй как replica нового (свежая базовая копия с нового primary)
-старый primary теперь replica (pg_is_in_recovery): t
- application_name |   state   |   replay_lag    
-------------------+-----------+-----------------
- primary          | streaming | 00:00:00.000031
+       constraint_name        | constraint_type 
+------------------------------+-----------------
+ 16388_16390_1_not_null       | CHECK
+ 16388_16390_2_not_null       | CHECK
+ 16388_16390_3_not_null       | CHECK
+ replication_probe_marker_key | UNIQUE
+ replication_probe_pkey       | PRIMARY KEY
+(5 rows)
+
+
+== Возвращаем старый primary как replica нового (свежая базовая копия)
+== Старый primary (порт 55432) теперь replica (sql/03-replica-status.sql) и получает журнал
+Pager usage is off.
+ database_name | connected_as | is_in_recovery | last_received_lsn | last_replayed_lsn | time_since_last_replayed_transaction 
+---------------+--------------+----------------+-------------------+-------------------+--------------------------------------
+ course_app    | course_admin | t              | 0/59000000        | 0/59000000        | 
 (1 row)
 
-новая запись id=41 на новом primary видна на пересобранном узле: 1
-Роли поменялись: primary = порт 55433, replica = порт 55432. Для возврата к исходной схеме — scripts/reset.sh
+  status   | sender_host | sender_port | latest_end_lsn |        latest_end_time        
+-----------+-------------+-------------+----------------+-------------------------------
+ streaming | replica     |        5432 |                | 2026-10-21 03:15:19.548516+00
+(1 row)
+
+== Новый primary видит его в репликации (sql/01-primary-status.sql)
+Pager usage is off.
+ database_name | connected_as | is_in_recovery | current_wal_lsn 
+---------------+--------------+----------------+-----------------
+ course_app    | course_admin | f              | 0/59000000
+(1 row)
+
+ application_name | client_addr |   state   | sync_state |  sent_lsn  | write_lsn  | flush_lsn  | replay_lsn 
+------------------+-------------+-----------+------------+------------+------------+------------+------------
+ primary          | 172.22.0.2  | streaming | async      | 0/59000000 | 0/59000000 | 0/59000000 | 0/59000000
+(1 row)
+
+Роли поменялись: primary = порт 55433, replica = порт 55432. Вернуть исходную схему: scripts/reset.sh

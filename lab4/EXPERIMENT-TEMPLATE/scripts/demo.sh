@@ -45,15 +45,15 @@ pause
 step 3 "Резервная копия и восстановление в чистый экземпляр (раздел 3 отчёта)" \
   "делаем копию БД, поднимаем новый пустой сервер, восстанавливаем и сверяем с оригиналом" \
   "в новой БД до восстановления 0 таблиц; потом число строк совпадает, контрольные суммы совпадают («СОВПАДАЕТ»)"
-run backup_restore
-section 1 "$TMP/backup_restore.txt"; echo; section 2 "$TMP/backup_restore.txt"; echo; section 3 "$TMP/backup_restore.txt"; echo; section 4 "$TMP/backup_restore.txt"
+run backup; run restore
+cat "$TMP/backup.txt"; echo; cat "$TMP/restore.txt"
 pause
 
 step 4 "Репликация primary → replica (раздел 4 отчёта)" \
   "изменения идут с главного сервера на копию, а в обратную сторону писать нельзя" \
   "primary = f, replica = t; запись пробы на primary появилась на replica; запись на replica отклонена"
 run demo_replication
-section 1 "$TMP/demo_replication.txt"; echo; section 3 "$TMP/demo_replication.txt"; section 5 "$TMP/demo_replication.txt"; section 6 "$TMP/demo_replication.txt"; section 7 "$TMP/demo_replication.txt"
+cat "$TMP/demo_replication.txt"
 pause
 
 step 5 "Дополнительно: RLS и аудит (раздел 7 отчёта)" \

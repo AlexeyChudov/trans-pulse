@@ -7,7 +7,8 @@ run() { echo "##### $1"; bash scripts/$1.sh > results/$2.txt 2>&1; tail -2 resul
 run demo_roles 01_roles
 run demo_rls_audit 02_rls_audit
 run demo_replication 03_replication
-run backup_restore 04_backup_restore
+run backup 04a_backup
+run restore 04b_restore
 run lag_test 05_lag
 run analytics_on_replica 06_analytics_replica
 run failure_replica 07_failure_replica

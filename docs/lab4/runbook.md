@@ -56,7 +56,7 @@
 **Признаки:** оба контейнера не стартуют, либо данные ошибочно удалены и это уже реплицировалось.
 
 **Восстановление из резервной копии**
-1. Копии: `backups/course_app.dump` (данные) и `backups/globals.sql` (роли без паролей). Создаются `scripts/backup_restore.sh`.
+1. Копии: `backups/course_app.dump` (данные) и `backups/globals.sql` (роли без паролей). Создаются `scripts/backup.sh`; восстановление — `scripts/restore.sh`.
 2. В чистом экземпляре PostgreSQL 17: сначала роли (`psql -f globals_clean.sql`, строки про суперпользователя убрать; пароли задать заново из `.env`), затем `pg_restore --dbname=<строка подключения> course_app.dump`.
 3. Поднять replica заново из восстановленного primary (раздел 1, п. 2).
 

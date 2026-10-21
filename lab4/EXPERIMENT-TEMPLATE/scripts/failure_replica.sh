@@ -1,23 +1,27 @@
 #!/bin/bash
-# Опыт 1: остановка replica. Приложение должно продолжать работать, replica потом догоняет.
+# Опыт 1: остановка replica. Приложение должно продолжать работать, replica потом догоняет. SQL — пробы шаблона.
 cd "$(dirname "$0")/.."; source scripts/lib.sh
+run() { psql "$(url "$1" "$2")" -X -f "$3"; }
 LOG=results/app_log_replica_down.txt
 bash scripts/app_sim.sh > $LOG 2>&1 & APP_PID=$!
 trap 'kill $APP_PID 2>/dev/null' EXIT
 sleep 4
 echo "[$(date +%T)] Останавливаем replica (docker compose stop replica)"
 docker compose stop replica >/dev/null 2>&1
-sleep 5
-echo "[$(date +%T)] primary видит реплику?"
-q $ADMIN $PRIMARY "SELECT count(*) AS подключённых_реплик FROM pg_stat_replication"
-q $ADMIN $PRIMARY "SELECT slot_name, active FROM pg_replication_slots"
-printf 'записей-проб на primary за время простоя replica продолжает расти: '; qa $ADMIN $PRIMARY "SELECT count(*) FROM app.replication_probe"
+sleep 4
+echo "== Запись на primary без replica (sql/02-create-probe.sql)"
+run $APP $PRIMARY sql/02-create-probe.sql
+echo "== primary видит реплику? (sql/01-primary-status.sql): вторая таблица должна быть пустой"
+run $ADMIN $PRIMARY sql/01-primary-status.sql
 sleep 3
 echo "[$(date +%T)] Запускаем replica обратно"
 docker compose start replica >/dev/null 2>&1
 wait_ready $REPLICA; sleep 4
 kill $APP_PID 2>/dev/null; wait $APP_PID 2>/dev/null
-echo "[$(date +%T)] Replica догнала primary?"
-q $ADMIN $PRIMARY "SELECT application_name, state, sync_state, replay_lag FROM pg_stat_replication"
-printf 'строк replication_probe: primary=%s replica=%s\n' "$(qa $ADMIN $PRIMARY 'SELECT count(*) FROM app.replication_probe')" "$(qa $ADMIN $REPLICA 'SELECT count(*) FROM app.replication_probe')"
+echo "== Replica догнала? (sql/03-replica-status.sql, sql/04-read-probes.sql)"
+run $ADMIN $REPLICA sql/03-replica-status.sql
+run $ANALYST $REPLICA sql/04-read-probes.sql | head -8
+echo "== Целостность (sql/05-integrity-check.sql): число проб должно совпасть"
+echo "primary:"; run $ADMIN $PRIMARY sql/05-integrity-check.sql | sed -n 1,5p
+echo "replica:"; run $ADMIN $REPLICA sql/05-integrity-check.sql | sed -n 1,5p
 echo; echo "== Поведение приложения (журнал $LOG): записей OK=$(grep -c ' OK ' $LOG), FAIL=$(grep -c ' FAIL ' $LOG)"

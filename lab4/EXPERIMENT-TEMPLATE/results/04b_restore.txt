@@ -1,0 +1,30 @@
+== 1. Чистый узел restore
+таблиц до восстановления: 0
+== 2. Восстановление: сначала роли, потом данные
+pg_restore завершён без ошибок
+== 3. Проверка: SQL-проба шаблона sql/05-integrity-check.sql на оригинале и на копии
+Pager usage is off.
+ probe_count | first_probe_id | last_probe_id 
+-------------+----------------+---------------
+           2 |              1 |             2
+(1 row)
+
+ marker | duplicate_count 
+--------+-----------------
+(0 rows)
+
+       constraint_name        | constraint_type 
+------------------------------+-----------------
+ 16388_16414_1_not_null       | CHECK
+ 16388_16414_2_not_null       | CHECK
+ 16388_16414_3_not_null       | CHECK
+ replication_probe_marker_key | UNIQUE
+ replication_probe_pkey       | PRIMARY KEY
+(5 rows)
+
+Проба: результаты на оригинале и копии ПОЛНОСТЬЮ совпадают
+routes     оригинал=20      копия=20
+vehicles   оригинал=200     копия=200
+trips      оригинал=100000  копия=100000
+incidents  оригинал=8370    копия=8370
+Контрольная сумма данных СОВПАДАЕТ — восстановлено полностью

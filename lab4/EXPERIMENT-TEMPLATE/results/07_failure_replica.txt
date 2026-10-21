@@ -1,22 +1,61 @@
-[19:40:03] Останавливаем replica (docker compose stop replica)
-[19:40:10] primary видит реплику?
- подключённых_реплик 
----------------------
-                   0
+[10:14:48] Останавливаем replica (docker compose stop replica)
+== Запись на primary без replica (sql/02-create-probe.sql)
+Pager usage is off.
+ id |            marker             |          created_at           
+----+-------------------------------+-------------------------------
+ 12 | probe-20261021-031453-811-284 | 2026-10-21 03:14:53.811163+00
 (1 row)
 
- slot_name | active 
------------+--------
+INSERT 0 1
+ primary_wal_lsn 
+-----------------
+ 0/5775C8A8
+(1 row)
+
+== primary видит реплику? (sql/01-primary-status.sql): вторая таблица должна быть пустой
+Pager usage is off.
+ database_name | connected_as | is_in_recovery | current_wal_lsn 
+---------------+--------------+----------------+-----------------
+ course_app    | course_admin | f              | 0/5775C8A8
+(1 row)
+
+ application_name | client_addr | state | sync_state | sent_lsn | write_lsn | flush_lsn | replay_lsn 
+------------------+-------------+-------+------------+----------+-----------+-----------+------------
 (0 rows)
 
-записей-проб на primary за время простоя replica продолжает расти: 12
-[19:40:13] Запускаем replica обратно
-[19:40:21] Replica догнала primary?
- application_name |   state   | sync_state |   replay_lag    
-------------------+-----------+------------+-----------------
- course_replica   | streaming | async      | 00:00:00.000869
+[10:14:56] Запускаем replica обратно
+== Replica догнала? (sql/03-replica-status.sql, sql/04-read-probes.sql)
+Pager usage is off.
+ database_name | connected_as | is_in_recovery | last_received_lsn | last_replayed_lsn | time_since_last_replayed_transaction 
+---------------+--------------+----------------+-------------------+-------------------+--------------------------------------
+ course_app    | course_admin | t              | 0/5775D348        | 0/5775D348        | 00:00:00.382683
 (1 row)
 
-строк replication_probe: primary=22 replica=22
+  status   | sender_host | sender_port | latest_end_lsn |       latest_end_time        
+-----------+-------------+-------------+----------------+------------------------------
+ streaming | primary     |        5432 | 0/5775D348     | 2026-10-21 03:15:03.44371+00
+(1 row)
 
-== Поведение приложения (журнал results/app_log_replica_down.txt): записей OK=20, FAIL=0
+Pager usage is off.
+ id |            marker             |          created_at           
+----+-------------------------------+-------------------------------
+ 21 | probe-20261021-031503-440-312 | 2026-10-21 03:15:03.440588+00
+ 20 | probe-20261021-031502-353-311 | 2026-10-21 03:15:02.35316+00
+ 19 | probe-20261021-031501-247-310 | 2026-10-21 03:15:01.248024+00
+ 18 | probe-20261021-031500-150-309 | 2026-10-21 03:15:00.150908+00
+ 17 | probe-20261021-031459-084-307 | 2026-10-21 03:14:59.084652+00
+== Целостность (sql/05-integrity-check.sql): число проб должно совпасть
+primary:
+Pager usage is off.
+ probe_count | first_probe_id | last_probe_id 
+-------------+----------------+---------------
+          21 |              1 |            21
+(1 row)
+replica:
+Pager usage is off.
+ probe_count | first_probe_id | last_probe_id 
+-------------+----------------+---------------
+          21 |              1 |            21
+(1 row)
+
+== Поведение приложения (журнал results/app_log_replica_down.txt): записей OK=18, FAIL=0
