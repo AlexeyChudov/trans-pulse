@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -56,4 +58,41 @@ func queryInt(r *http.Request, name string) (int, error) {
 func queryInt64(r *http.Request, name string) (int64, error) {
 	v, err := queryInt(r, name)
 	return int64(v), err
+}
+
+func queryFloatRequired(r *http.Request, name string) (float64, error) {
+	raw := r.URL.Query().Get(name)
+	if raw == "" {
+		return 0, invalidInput("параметр %s обязателен", name)
+	}
+	v, err := strconv.ParseFloat(raw, 64)
+	if err != nil {
+		return 0, invalidInput("параметр %s должен быть числом", name)
+	}
+	return v, nil
+}
+
+func queryTimeRequired(r *http.Request, name string) (time.Time, error) {
+	raw := r.URL.Query().Get(name)
+	if raw == "" {
+		return time.Time{}, invalidInput("параметр %s обязателен (формат RFC3339, например 2026-10-01T08:00:00Z)", name)
+	}
+	t, err := time.Parse(time.RFC3339, raw)
+	if err != nil {
+		return time.Time{}, invalidInput("параметр %s: ожидается время в формате RFC3339", name)
+	}
+	return t, nil
+}
+
+// normalizeAttributes: JSON-числа приходят как float64; целые значения сохраняем как целые (2, а не 2.0).
+func normalizeAttributes(in map[string]any) map[string]any {
+	out := make(map[string]any, len(in))
+	for k, v := range in {
+		if f, ok := v.(float64); ok && f == math.Trunc(f) && math.Abs(f) < 1<<53 {
+			out[k] = int64(f)
+		} else {
+			out[k] = v
+		}
+	}
+	return out
 }

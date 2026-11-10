@@ -14,6 +14,7 @@ import (
 	"github.com/AlexeyChudov/trans-pulse/internal/config"
 	httpapi "github.com/AlexeyChudov/trans-pulse/internal/http"
 	"github.com/AlexeyChudov/trans-pulse/internal/jwt"
+	mongorepo "github.com/AlexeyChudov/trans-pulse/internal/repository/mongo"
 	"github.com/AlexeyChudov/trans-pulse/internal/repository/postgres"
 	"github.com/AlexeyChudov/trans-pulse/internal/service"
 )
@@ -40,6 +41,17 @@ func run(log *slog.Logger) error {
 	}
 	defer pool.Close()
 
+	mongoClient, err := mongorepo.Connect(ctx, cfg.MongoURI)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = mongoClient.Disconnect(context.Background()) }()
+	mongoDB := mongoClient.Database(cfg.MongoDB)
+	// Схемы валидации и индексы применяются при каждом старте (операция идемпотентна).
+	if err := mongorepo.EnsureSchema(ctx, mongoDB); err != nil {
+		return err
+	}
+
 	tokens, err := jwt.NewManager(cfg.JWTSecret, cfg.JWTTTL)
 	if err != nil {
 		return err
@@ -47,12 +59,18 @@ func run(log *slog.Logger) error {
 
 	routes := postgres.NewRouteRepository(pool)
 	vehicles := postgres.NewVehicleRepository(pool)
+	trips := postgres.NewTripRepository(pool)
+	incidents := postgres.NewIncidentRepository(pool)
 	handler := httpapi.NewRouter(httpapi.Deps{
 		Auth:      service.NewAuthService(postgres.NewUserRepository(pool), tokens),
 		Routes:    service.NewRouteService(routes),
 		Vehicles:  service.NewVehicleService(vehicles),
-		Trips:     service.NewTripService(postgres.NewTripRepository(pool), routes, vehicles, nil),
-		Incidents: service.NewIncidentService(postgres.NewIncidentRepository(pool), nil),
+		Trips:     service.NewTripService(trips, routes, vehicles, nil),
+		Incidents: service.NewIncidentService(incidents, nil),
+		Telemetry: service.NewTelemetryService(mongorepo.NewTelemetryRepository(mongoDB), vehicles, nil),
+		Journals:  service.NewJournalService(mongorepo.NewJournalRepository(mongoDB), trips, nil),
+		Cases:     service.NewCaseService(mongorepo.NewCaseRepository(mongoDB), incidents, trips, nil),
+		Geo:       service.NewGeoService(mongorepo.NewStopPointRepository(mongoDB), mongorepo.NewRouteProfileRepository(mongoDB), routes),
 		Tokens:    tokens,
 		Logger:    log,
 	})

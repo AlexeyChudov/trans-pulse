@@ -47,6 +47,38 @@ type IncidentService interface {
 	Resolve(ctx context.Context, id, userID int64) (domain.Incident, error)
 }
 
+type TelemetryService interface {
+	Record(ctx context.Context, p domain.TelemetryPoint) error
+	History(ctx context.Context, vehicleID int64, from, to time.Time, limit int) ([]domain.TelemetryPoint, error)
+}
+
+type JournalService interface {
+	Create(ctx context.Context, tripID int64) (domain.TripJournal, error)
+	Get(ctx context.Context, tripID int64) (domain.TripJournal, error)
+	AddEvent(ctx context.Context, tripID int64, e domain.JournalEvent) (domain.TripJournal, error)
+	Delete(ctx context.Context, tripID int64) error
+}
+
+type CaseService interface {
+	Create(ctx context.Context, incidentID, userID int64, title string, tags []string) (domain.IncidentCase, error)
+	Get(ctx context.Context, incidentID int64) (domain.IncidentCase, error)
+	Update(ctx context.Context, incidentID int64, title *string, tags *[]string) (domain.IncidentCase, error)
+	AddComment(ctx context.Context, incidentID, authorID int64, text string) (domain.IncidentCase, error)
+	Close(ctx context.Context, incidentID, userID int64) (domain.IncidentCase, error)
+	Delete(ctx context.Context, incidentID int64) error
+}
+
+type GeoService interface {
+	CreateStopPoint(ctx context.Context, stopID int64, attrs map[string]any) (domain.StopPoint, error)
+	GetStopPoint(ctx context.Context, stopID int64) (domain.StopPoint, error)
+	SetAttributes(ctx context.Context, stopID int64, attrs map[string]any) (domain.StopPoint, error)
+	DeleteStopPoint(ctx context.Context, stopID int64) error
+	Near(ctx context.Context, lat, lon float64, radiusM, limit int) ([]domain.NearStop, error)
+	SetRouteStops(ctx context.Context, routeID int64, refs []domain.RouteStopRef) (domain.RouteProfile, error)
+	GetRouteProfile(ctx context.Context, routeID int64) (domain.RouteProfile, error)
+	DeleteRouteProfile(ctx context.Context, routeID int64) error
+}
+
 // TokenParser проверяет токен доступа (реализует internal/jwt.Manager).
 type TokenParser interface {
 	Parse(token string) (jwt.Claims, error)
@@ -58,6 +90,10 @@ type Deps struct {
 	Vehicles  VehicleService
 	Trips     TripService
 	Incidents IncidentService
+	Telemetry TelemetryService
+	Journals  JournalService
+	Cases     CaseService
+	Geo       GeoService
 	Tokens    TokenParser
 	Logger    *slog.Logger
 }

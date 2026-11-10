@@ -10,6 +10,7 @@ import (
 const (
 	defaultHTTPAddr = ":8080"
 	defaultJWTTTL   = time.Hour
+	defaultMongoDB  = "trans_pulse"
 	minSecretLen    = 32
 )
 
@@ -18,6 +19,8 @@ type Config struct {
 	JWTSecret   string
 	JWTTTL      time.Duration
 	HTTPAddr    string
+	MongoURI    string
+	MongoDB     string
 }
 
 // Load читает настройки через getenv (os.Getenv в приложении, словарь в тестах).
@@ -26,13 +29,21 @@ func Load(getenv func(string) string) (Config, error) {
 		DatabaseURL: getenv("DATABASE_URL"),
 		JWTSecret:   getenv("JWT_SECRET"),
 		HTTPAddr:    getenv("HTTP_ADDR"),
+		MongoURI:    getenv("MONGO_URI"),
+		MongoDB:     getenv("MONGO_DB"),
 		JWTTTL:      defaultJWTTTL,
 	}
 	if cfg.HTTPAddr == "" {
 		cfg.HTTPAddr = defaultHTTPAddr
 	}
+	if cfg.MongoDB == "" {
+		cfg.MongoDB = defaultMongoDB
+	}
 	if cfg.DatabaseURL == "" {
 		return Config{}, errors.New("config: не задана переменная DATABASE_URL")
+	}
+	if cfg.MongoURI == "" {
+		return Config{}, errors.New("config: не задана переменная MONGO_URI")
 	}
 	if cfg.JWTSecret == "" {
 		return Config{}, errors.New("config: не задана переменная JWT_SECRET")

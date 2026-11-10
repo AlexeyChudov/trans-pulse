@@ -37,6 +37,9 @@ func NewRouter(d Deps) http.Handler {
 		r.Get("/routes/{id}", a.getRoute)
 		r.Get("/routes/{id}/stops", a.routeStops)
 		r.Get("/stops", a.listStops)
+		r.Get("/stop-points/near", a.nearStopPoints)
+		r.Get("/stop-points/{id}", a.getStopPoint)
+		r.Get("/route-profiles/{id}", a.getRouteProfile)
 
 		// только с токеном
 		r.Group(func(r chi.Router) {
@@ -51,6 +54,18 @@ func NewRouter(d Deps) http.Handler {
 				r.Get("/trips/{id}", a.getTrip)
 				r.Get("/incidents", a.listIncidents)
 				r.Post("/incidents/{id}/resolve", a.resolveIncident)
+
+				// документные данные (MongoDB)
+				r.Post("/telemetry", a.recordTelemetry)
+				r.Get("/vehicles/{id}/telemetry", a.vehicleTelemetry)
+				r.Post("/trips/{id}/journal", a.createJournal)
+				r.Get("/trips/{id}/journal", a.getJournal)
+				r.Post("/trips/{id}/journal/events", a.addJournalEvent)
+				r.Post("/incidents/{id}/case", a.createCase)
+				r.Get("/incidents/{id}/case", a.getCase)
+				r.Patch("/incidents/{id}/case", a.updateCase)
+				r.Post("/incidents/{id}/case/comments", a.addCaseComment)
+				r.Post("/incidents/{id}/case/close", a.closeCase)
 			})
 
 			// только администратор
@@ -65,6 +80,13 @@ func NewRouter(d Deps) http.Handler {
 				r.Post("/trips/{id}/start", a.startTrip)
 				r.Post("/trips/{id}/complete", a.completeTrip)
 				r.Post("/trips/{id}/cancel", a.cancelTrip)
+				r.Delete("/trips/{id}/journal", a.deleteJournal)
+				r.Delete("/incidents/{id}/case", a.deleteCase)
+				r.Post("/stop-points", a.createStopPoint)
+				r.Put("/stop-points/{id}", a.setStopPointAttributes)
+				r.Delete("/stop-points/{id}", a.deleteStopPoint)
+				r.Put("/route-profiles/{id}/stops", a.setRouteStops)
+				r.Delete("/route-profiles/{id}", a.deleteRouteProfile)
 			})
 		})
 	})

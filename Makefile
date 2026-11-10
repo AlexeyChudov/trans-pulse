@@ -27,7 +27,7 @@ migrate-status:
 API_DATABASE_URL ?= postgres://postgres:postgres@localhost:5432/trans-pulse_api?sslmode=disable
 API_TEST_DATABASE_URL ?= postgres://postgres:postgres@localhost:5432/trans-pulse_api_test?sslmode=disable
 
-.PHONY: api-migrate api-run api-test create-admin
+.PHONY: api-migrate api-run api-test create-admin mongo-up sql-check
 
 api-migrate:
 	goose -dir ./migrations postgres "$(API_DATABASE_URL)" up
@@ -36,9 +36,17 @@ api-migrate:
 api-run:
 	set -a; . ./.env; set +a; go run ./cmd/api
 
-# Интеграционные тесты репозиториев идут против API_TEST_DATABASE_URL (без неё они пропускаются)
+# MongoDB для документной части (пароль из .env)
+mongo-up:
+	set -a; . ./.env; set +a; docker compose -f docker-compose.mongo.yml up -d
+
+# Интеграционные тесты идут против API_TEST_DATABASE_URL (PostgreSQL) и API_TEST_MONGO_URI (MongoDB); без них они пропускаются
 api-test:
-	API_TEST_DATABASE_URL="$(API_TEST_DATABASE_URL)" go test -count=1 ./internal/...
+	set -a; . ./.env; set +a; API_TEST_DATABASE_URL="$(API_TEST_DATABASE_URL)" API_TEST_MONGO_URI="$$MONGO_URI" go test -count=1 ./internal/...
+
+# Автопроверка SQL-каталога на тестовых данных (лаб. работа 5)
+sql-check:
+	bash lab5/sql/check.sh
 
 # make create-admin LOGIN=boss ADMIN_PASSWORD='длинный-пароль'
 create-admin:
