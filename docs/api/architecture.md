@@ -37,7 +37,7 @@ internal/
   jwt/                    Manager: Generate / Parse (HS256)
   service/                auth, routes, vehicles, trips, incidents
   repository/postgres/    реализация интерфейсов на pgx
-  http/                   router, middleware, handlers, dto
+  http/                   router, middleware, handlers, dto (пакет называется httpapi, чтобы не путать с net/http)
 migrations/               goose-миграции (схема из ЛР2)
 docs/api/                 этот документ
 ```
@@ -85,6 +85,20 @@ docs/api/                 этот документ
 | `JWT_SECRET` | секрет подписи токенов, не короче 32 символов (обязателен, только в `.env`, в git не хранится) |
 | `JWT_TTL` | срок жизни токена, по умолчанию `1h` |
 | `HTTP_ADDR` | адрес сервера, по умолчанию `:8080` |
+
+## Запуск и проверка
+
+1. База: `docker start go_postgres` (или `docker compose up -d`), создать БД `trans-pulse_api` и применить миграции: `make api-migrate` (строка подключения — `API_DATABASE_URL`).
+2. Настройки: `cp .env.example .env`, подставить свой `JWT_SECRET` (например, `openssl rand -hex 32`). Файл `.env` в git не попадает.
+3. Первый администратор: `make create-admin LOGIN=boss ADMIN_PASSWORD='длинный-пароль'` (пароль передаётся через окружение, а не аргументом команды).
+4. Сервер: `make api-run`.
+5. Тесты: `make api-test` (юнит-тесты и интеграционные тесты репозиториев на отдельной БД `trans-pulse_api_test`, переменная `API_TEST_DATABASE_URL`).
+6. Живая проверка через curl: `ADMIN_PASSWORD='...' DATABASE_URL="$API_DATABASE_URL" bash scripts/api_smoke.sh` (вход, роли, жизненный цикл рейса, правило «один активный рейс на автобус», инциденты).
+
+## Ограничения
+
+- Токен проверяется без обращения к БД: отключение пользователя или смена роли вступают в силу после истечения токена (`JWT_TTL`).
+- Инциденты создаёт система мониторинга (в этом API их можно только смотреть и закрывать).
 
 ## Не входит в эту версию
 
