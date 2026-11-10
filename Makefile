@@ -23,3 +23,23 @@ migrate-down:
 migrate-status:
 	goose -dir $(MIGRATIONS_DIR) postgres "$(DATABASE_URL)" status
 
+# ---- REST API ----
+API_DATABASE_URL ?= postgres://postgres:postgres@localhost:5432/trans-pulse_api?sslmode=disable
+API_TEST_DATABASE_URL ?= postgres://postgres:postgres@localhost:5432/trans-pulse_api_test?sslmode=disable
+
+.PHONY: api-migrate api-run api-test create-admin
+
+api-migrate:
+	goose -dir ./migrations postgres "$(API_DATABASE_URL)" up
+
+# Переменные (DATABASE_URL, JWT_SECRET, ...) берутся из .env (шаблон: .env.example)
+api-run:
+	set -a; . ./.env; set +a; go run ./cmd/api
+
+# Интеграционные тесты репозиториев идут против API_TEST_DATABASE_URL (без неё они пропускаются)
+api-test:
+	API_TEST_DATABASE_URL="$(API_TEST_DATABASE_URL)" go test -count=1 ./internal/...
+
+# make create-admin LOGIN=boss ADMIN_PASSWORD='длинный-пароль'
+create-admin:
+	DATABASE_URL="$(API_DATABASE_URL)" ADMIN_PASSWORD="$(ADMIN_PASSWORD)" go run ./cmd/createadmin -login "$(LOGIN)"
