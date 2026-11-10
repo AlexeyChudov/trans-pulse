@@ -1,0 +1,2 @@
+incident|type|created_at|route|bus|planned_start|trip_status
+6|DELAY|2026-10-02 08:10:00+00|1|B2|2026-10-02 08:00:00+00|COMPLETED

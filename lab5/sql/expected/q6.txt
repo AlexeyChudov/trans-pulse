@@ -1,0 +1,5 @@
+route|bus|incidents|rnk
+1|B1|3|1
+1|B2|3|1
+2|B2|2|1
+2|B1|1|2

@@ -1,0 +1,4 @@
+login|type|resolved|avg_min|median_min
+disp1|DELAY|4|12.5|10.0
+disp2|DELAY|2|25.0|25.0
+disp1|NO_TELEMETRY|1|30.0|30.0

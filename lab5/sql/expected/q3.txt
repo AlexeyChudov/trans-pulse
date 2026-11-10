@@ -1,0 +1,3 @@
+bus|model|status|trips_with_incidents|incidents
+B2|Volvo|IN_SERVICE|4|5
+B1|MAN|IN_SERVICE|3|4
