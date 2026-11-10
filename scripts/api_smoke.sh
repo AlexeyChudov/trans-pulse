@@ -82,4 +82,71 @@ else
   echo "  (пропущено: задайте DATABASE_URL, чтобы создать тестовый инцидент)"
 fi
 
+echo "== MongoDB: телеметрия, журнал рейса, карточка инцидента, остановки и маршруты (M:N)"
+if [ -n "${DATABASE_URL:-}" ]; then
+  # --- телеметрия (автобус BUS существует в PostgreSQL)
+  P="{\"vehicle_id\":$BUS,\"trip_id\":$T2,\"ts\":\"2026-10-01T08:00:10Z\",\"latitude\":50.4501,\"longitude\":30.5234,\"speed_kmh\":32.5}"
+  call POST /telemetry "$DISP" "$P"; expect "приём GPS-точки" 201
+  call POST /telemetry "$DISP" "{\"vehicle_id\":$BUS,\"ts\":\"2026-10-01T08:00:20Z\",\"latitude\":50.4510,\"longitude\":30.5240,\"speed_kmh\":35}"; expect "вторая точка того же часа" 201
+  call POST /telemetry "$DISP" "{\"vehicle_id\":$BUS,\"ts\":\"2026-10-01T08:00:30Z\",\"latitude\":95,\"longitude\":30,\"speed_kmh\":10}"; expect "широта 95 (BR-10)" 400
+  call POST /telemetry "$DISP" "{\"vehicle_id\":$BUS,\"latitude\":50,\"longitude\":30,\"speed_kmh\":10}"; expect "нет времени измерения (BR-12)" 400
+  call POST /telemetry "$DISP" "{\"vehicle_id\":999999,\"ts\":\"2026-10-01T08:00:30Z\",\"latitude\":50,\"longitude\":30,\"speed_kmh\":10}"; expect "неизвестный автобус (BR-09)" 400
+  call GET "/vehicles/$BUS/telemetry?from=2026-10-01T08:00:00Z&to=2026-10-01T09:00:00Z" "$DISP"; expect "история телеметрии" 200
+  echo "     точек в истории: $(echo "$BODY" | jq length) (хранятся в одном документе-корзине)"
+  call GET "/vehicles/$BUS/telemetry?from=2026-10-01T00:00:00Z&to=2026-10-03T00:00:00Z" "$DISP"; expect "период больше 24 часов" 400
+
+  # --- журнал рейса (рейс T2 — IN_PROGRESS)
+  call POST "/trips/$T2/journal" "$DISP"; expect "создание журнала рейса" 201
+  call POST "/trips/$T2/journal" "$DISP"; expect "повторное создание журнала" 409
+  call POST "/trips/$T2/journal/events" "$DISP" '{"at":"2026-10-01T08:00:00Z","type":"DEPARTED"}'; expect "событие DEPARTED" 201
+  call POST "/trips/$T2/journal/events" "$DISP" '{"at":"2026-10-01T08:06:00Z","type":"DELAY_DETECTED","delay_seconds":360}'; expect "событие DELAY_DETECTED" 201
+  call POST "/trips/$T2/journal/events" "$DISP" '{"at":"2026-10-01T08:03:00Z","type":"NOTE","note":"раньше последнего"}'; expect "событие раньше последнего (хронология)" 409
+  call POST "/trips/$T2/journal/events" "$DISP" '{"at":"2026-10-01T08:07:00Z","type":"DELAY_DETECTED"}'; expect "DELAY_DETECTED без задержки" 400
+  call GET "/trips/$T2/journal" "$DISP"; expect "чтение журнала" 200
+  echo "     событий в журнале: $(echo "$BODY" | jq '.events | length')"
+  call DELETE "/trips/$T2/journal" "$DISP"; expect "диспетчер удаляет журнал (нельзя)" 403
+  call DELETE "/trips/$T2/journal" "$ADMIN"; expect "администратор удаляет журнал" 204
+
+  # --- карточка инцидента: ссылки на PostgreSQL, комментарии встроены
+  call POST "/incidents/$INC/case" "$DISP" '{"title":"Разбор задержки рейса","tags":["Delay","traffic"]}'; expect "создание карточки инцидента" 201
+  echo "     ссылки из PostgreSQL: trip=$(echo "$BODY" | jq .trip_id) vehicle=$(echo "$BODY" | jq .vehicle_id) route=$(echo "$BODY" | jq .route_id); теги: $(echo "$BODY" | jq -c .tags)"
+  call POST "/incidents/$INC/case/comments" "$DISP" '{"text":"Водитель сообщил о пробке"}'; expect "комментарий к карточке" 201
+  call PATCH "/incidents/$INC/case" "$DISP" '{"tags":["delay","traffic","resolved"]}'; expect "правка тегов" 200
+  call POST "/incidents/$INC/case/close" "$DISP"; expect "закрытие карточки (инцидент закрыт в PostgreSQL)" 200
+  call POST "/incidents/$INC/case/comments" "$DISP" '{"text":"поздно"}'; expect "комментарий к закрытой карточке" 409
+  OPEN_INC=$(psql "$DATABASE_URL" -Atqc "INSERT INTO incidents (trip_id, type, description) VALUES ($T1, 'NO_TELEMETRY', 'smoke-test-open') RETURNING id")
+  call POST "/incidents/$OPEN_INC/case" "$DISP" '{"title":"Карточка открытого инцидента"}'; expect "карточка для открытого инцидента" 201
+  call POST "/incidents/$OPEN_INC/case/close" "$DISP"; expect "закрыть карточку, пока инцидент OPEN в PostgreSQL" 409
+  call POST "/incidents/999999/case" "$DISP" '{"title":"Нет такого инцидента"}'; expect "карточка несуществующего инцидента" 404
+
+  # --- остановки (проекция PostgreSQL + геопоиск) и связь M:N «маршруты ↔ остановки»
+  S1=$(psql "$DATABASE_URL" -Atqc "INSERT INTO stops (name, latitude, longitude) VALUES ('Центральная', 50.4501, 30.5234) RETURNING id")
+  S2=$(psql "$DATABASE_URL" -Atqc "INSERT INTO stops (name, latitude, longitude) VALUES ('Вокзал', 50.4419, 30.5118) RETURNING id")
+  S3=$(psql "$DATABASE_URL" -Atqc "INSERT INTO stops (name, latitude, longitude) VALUES ('Университет', 50.4489, 30.5145) RETURNING id")
+  call POST /stop-points "$ADMIN" "{\"stop_id\":$S1,\"attributes\":{\"shelter\":true,\"bench_count\":2}}"; expect "проекция остановки 1 (с гибкими атрибутами)" 201
+  call POST /stop-points "$ADMIN" "{\"stop_id\":$S2}"; expect "проекция остановки 2" 201
+  call POST /stop-points "$ADMIN" "{\"stop_id\":$S3}"; expect "проекция остановки 3" 201
+  call POST /stop-points "$ADMIN" "{\"stop_id\":$S3}"; expect "дубликат проекции" 409
+  call POST /stop-points "$ADMIN" '{"stop_id":999999}'; expect "остановки нет в PostgreSQL" 400
+  call POST /stop-points "$DISP" "{\"stop_id\":$S1}"; expect "диспетчер создаёт проекцию (нельзя)" 403
+  call GET "/stop-points/near?lat=50.4500&lon=30.5230&radius=2000&limit=5" -; expect "геопоиск ближайших остановок (открытый)" 200
+  echo "     найдено: $(echo "$BODY" | jq -c '[.[] | {name, distance_m: (.distance_m | floor)}]')"
+  call GET "/stop-points/near?lat=50.45" -; expect "геопоиск без lon" 400
+  call POST /routes "$ADMIN" "{\"number\":\"M$RANDOM\",\"name\":\"Второй маршрут\"}"; expect "второй маршрут" 201
+  ROUTE2=$(echo "$BODY" | jq .id)
+  call PUT "/route-profiles/$ROUTE/stops" "$ADMIN" "{\"stops\":[{\"stop_id\":$S1,\"seq\":1},{\"stop_id\":$S2,\"seq\":2}]}"; expect "состав маршрута 1: остановки 1, 2" 200
+  call PUT "/route-profiles/$ROUTE2/stops" "$ADMIN" "{\"stops\":[{\"stop_id\":$S3,\"seq\":1},{\"stop_id\":$S1,\"seq\":2}]}"; expect "состав маршрута 2: остановки 3, 1 (M:N)" 200
+  call GET "/stop-points/$S1" -; expect "остановка 1 входит в два маршрута" 200
+  echo "     route_ids остановки 1: $(echo "$BODY" | jq -c '.route_ids | sort')"
+  call PUT "/route-profiles/$ROUTE/stops" "$ADMIN" "{\"stops\":[{\"stop_id\":$S1,\"seq\":1},{\"stop_id\":$S2,\"seq\":3}]}"; expect "пропуск в нумерации остановок" 400
+  call PUT "/route-profiles/$ROUTE/stops" "$ADMIN" "{\"stops\":[{\"stop_id\":$S1,\"seq\":1}]}"; expect "убрали остановку 2 из маршрута 1" 200
+  call GET "/stop-points/$S2" -; echo "     route_ids остановки 2 после удаления из маршрута: $(echo "$BODY" | jq -c .route_ids)"
+  call DELETE "/stop-points/$S1" "$ADMIN"; expect "удалить проекцию остановки, входящей в маршруты" 409
+  call DELETE "/route-profiles/$ROUTE" "$ADMIN"; expect "удаление профиля маршрута 1" 204
+  call DELETE "/route-profiles/$ROUTE2" "$ADMIN"; expect "удаление профиля маршрута 2" 204
+  call DELETE "/stop-points/$S1" "$ADMIN"; expect "теперь проекцию можно удалить" 204
+else
+  echo "  (пропущено: задайте DATABASE_URL)"
+fi
+
 echo; [ $FAILED = 0 ] && echo "ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ" || { echo "ЕСТЬ ОШИБКИ"; exit 1; }
