@@ -85,6 +85,19 @@ func (r *RouteRepository) ListStops(ctx context.Context, routeID int64) ([]domai
 	})
 }
 
+func (r *RouteRepository) GetStop(ctx context.Context, id int64) (domain.Stop, error) {
+	rows, err := r.pool.Query(ctx, "SELECT "+stopCols+" FROM stops s WHERE s.id = $1", id)
+	if err != nil {
+		return domain.Stop{}, err
+	}
+	stop, err := pgx.CollectOneRow(rows, func(row pgx.CollectableRow) (domain.Stop, error) {
+		var s domain.Stop
+		err := row.Scan(&s.ID, &s.Name, &s.Latitude, &s.Longitude, &s.IsActive, &s.CreatedAt)
+		return s, err
+	})
+	return stop, mapErr(err, domain.ErrInvalidInput)
+}
+
 // ListAllStops возвращает активные остановки.
 func (r *RouteRepository) ListAllStops(ctx context.Context) ([]domain.Stop, error) {
 	rows, err := r.pool.Query(ctx, "SELECT "+stopCols+" FROM stops s WHERE s.is_active ORDER BY s.id")

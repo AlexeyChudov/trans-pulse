@@ -1,0 +1,21 @@
+# MongoDB для документной части API: docker compose -f docker-compose.mongo.yml up -d
+# Пароль берётся из .env (MONGO_ROOT_PASSWORD), в репозитории его нет.
+services:
+  mongo:
+    image: mongo:7
+    container_name: trans_pulse_mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-root}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?задайте MONGO_ROOT_PASSWORD в .env}
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.adminCommand({ping:1}).ok' | grep -q 1"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  mongo_data:

@@ -100,3 +100,17 @@ func TestRouteStopsOrderedBySequence(t *testing.T) {
 		t.Fatalf("ListAllStops: %+v, %v", all, err)
 	}
 }
+
+func TestRouteGetStop(t *testing.T) {
+	pool := testPool(t)
+	repo := postgres.NewRouteRepository(pool)
+	id := mustID(t, pool, `INSERT INTO stops (name, latitude, longitude) VALUES ('Вокзал', 50.4419, 30.5118) RETURNING id`)
+
+	stop, err := repo.GetStop(ctx, id)
+	if err != nil || stop.Name != "Вокзал" || stop.Latitude != 50.4419 || stop.Longitude != 30.5118 {
+		t.Fatalf("GetStop: %+v, %v", stop, err)
+	}
+	if _, err := repo.GetStop(ctx, 999); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("несуществующая остановка: %v", err)
+	}
+}

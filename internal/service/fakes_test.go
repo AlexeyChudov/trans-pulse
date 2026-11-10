@@ -58,14 +58,15 @@ func (f *fakeUsers) GetByID(_ context.Context, id int64) (domain.User, error) {
 // ---- маршруты ----
 
 type fakeRoutes struct {
-	byID  map[int64]domain.Route
-	next  int64
-	inUse map[int64]bool // на маршрут ссылаются рейсы: удалять нельзя
-	stops map[int64][]domain.RouteStop
+	byID      map[int64]domain.Route
+	next      int64
+	inUse     map[int64]bool // на маршрут ссылаются рейсы: удалять нельзя
+	stops     map[int64][]domain.RouteStop
+	stopsByID map[int64]domain.Stop
 }
 
 func newFakeRoutes() *fakeRoutes {
-	return &fakeRoutes{byID: map[int64]domain.Route{}, inUse: map[int64]bool{}, stops: map[int64][]domain.RouteStop{}}
+	return &fakeRoutes{byID: map[int64]domain.Route{}, inUse: map[int64]bool{}, stops: map[int64][]domain.RouteStop{}, stopsByID: map[int64]domain.Stop{}}
 }
 
 func (f *fakeRoutes) add(number string, active bool) domain.Route {
@@ -128,6 +129,13 @@ func (f *fakeRoutes) ListStops(_ context.Context, routeID int64) ([]domain.Route
 }
 
 func (f *fakeRoutes) ListAllStops(context.Context) ([]domain.Stop, error) { return nil, nil }
+
+func (f *fakeRoutes) GetStop(_ context.Context, id int64) (domain.Stop, error) {
+	if s, ok := f.stopsByID[id]; ok {
+		return s, nil
+	}
+	return domain.Stop{}, domain.ErrNotFound
+}
 
 // ---- автобусы ----
 

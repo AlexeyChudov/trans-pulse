@@ -20,6 +20,7 @@ type RouteRepository interface {
 	Create(ctx context.Context, r *Route) error // ErrConflict, если номер занят
 	Update(ctx context.Context, r *Route) error
 	Delete(ctx context.Context, id int64) error // ErrConflict, если на маршрут ссылаются рейсы
+	GetStop(ctx context.Context, id int64) (Stop, error)
 	ListStops(ctx context.Context, routeID int64) ([]RouteStop, error)
 	ListAllStops(ctx context.Context) ([]Stop, error)
 }
