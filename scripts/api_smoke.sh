@@ -1,13 +1,22 @@
 #!/bin/bash
-# Живая проверка API через curl: вход, роли, бизнес-правила. Сервер должен быть запущен (make api-run),
-# администратор создан (make create-admin LOGIN=boss ADMIN_PASSWORD=...).
-#   ADMIN_LOGIN=boss ADMIN_PASSWORD=... bash scripts/api_smoke.sh
+# Живая проверка API через curl: вход, роли, бизнес-правила, документные данные MongoDB.
+# Нужны curl и jq. Проще всего: make up && make smoke (администратор и пароль берутся из .env).
+#   ADMIN_LOGIN=admin ADMIN_PASSWORD=... bash scripts/api_smoke.sh
 set -u
-BASE=${BASE:-http://localhost:8080/api/v1}
-ADMIN_LOGIN=${ADMIN_LOGIN:-boss}
+BASE=${BASE:-http://localhost:${API_PORT:-8080}/api/v1}
+ADMIN_LOGIN=${ADMIN_LOGIN:-admin}
 : "${ADMIN_PASSWORD:?задайте ADMIN_PASSWORD}"
 DISP_LOGIN="disp$RANDOM"; DISP_PASSWORD="disp-password-$RANDOM"
 FAILED=0
+
+# psql_exec "<SQL>": выполнить запрос в БД API. Нужны локальный psql и DATABASE_URL, иначе используется контейнер postgres.
+psql_exec() {
+  if command -v psql >/dev/null 2>&1 && [ -n "${DATABASE_URL:-}" ]; then
+    psql "$DATABASE_URL" -Atqc "$1"
+  else
+    docker compose -f "$(dirname "$0")/../docker-compose.app.yml" exec -T postgres psql -U postgres -d trans-pulse_api -Atqc "$1"
+  fi
+}
 
 # call <метод> <путь> <токен|-> [тело]  → печатает «HTTP-код» и тело; тело сохраняется в $BODY, код в $CODE
 call() {
@@ -71,19 +80,19 @@ call GET "/trips?limit=abc" "$DISP"; expect "limit=abc" 400
 call DELETE "/routes/$ROUTE" "$ADMIN"; expect "удаление маршрута с рейсами (нельзя)" 409
 
 echo "== Инциденты (создаются системой мониторинга; здесь добавляем строку напрямую в БД)"
-if [ -n "${DATABASE_URL:-}" ]; then
-  psql "$DATABASE_URL" -Atqc "INSERT INTO incidents (trip_id, type, description) VALUES ($T2, 'DELAY', 'smoke-test')" >/dev/null
+if [ -z "${SKIP_DB_STEPS:-}" ]; then
+  psql_exec "INSERT INTO incidents (trip_id, type, description) VALUES ($T2, 'DELAY', 'smoke-test')" >/dev/null
   call GET "/incidents?status=OPEN&trip_id=$T2" "$DISP"; expect "список открытых инцидентов" 200
   INC=$(echo "$BODY" | jq '.[0].id')
   call POST "/incidents/$INC/resolve" "$DISP"; expect "диспетчер закрывает инцидент" 200
   echo "     закрыл пользователь #$(echo "$BODY" | jq .resolved_by_user_id) (диспетчер #$DISP_ID)"
   call POST "/incidents/$INC/resolve" "$DISP"; expect "повторное закрытие инцидента" 409
 else
-  echo "  (пропущено: задайте DATABASE_URL, чтобы создать тестовый инцидент)"
+  echo "  (пропущено: SKIP_DB_STEPS)"
 fi
 
 echo "== MongoDB: телеметрия, журнал рейса, карточка инцидента, остановки и маршруты (M:N)"
-if [ -n "${DATABASE_URL:-}" ]; then
+if [ -z "${SKIP_DB_STEPS:-}" ]; then
   # --- телеметрия (автобус BUS существует в PostgreSQL)
   P="{\"vehicle_id\":$BUS,\"trip_id\":$T2,\"ts\":\"2026-10-01T08:00:10Z\",\"latitude\":50.4501,\"longitude\":30.5234,\"speed_kmh\":32.5}"
   call POST /telemetry "$DISP" "$P"; expect "приём GPS-точки" 201
@@ -114,15 +123,15 @@ if [ -n "${DATABASE_URL:-}" ]; then
   call PATCH "/incidents/$INC/case" "$DISP" '{"tags":["delay","traffic","resolved"]}'; expect "правка тегов" 200
   call POST "/incidents/$INC/case/close" "$DISP"; expect "закрытие карточки (инцидент закрыт в PostgreSQL)" 200
   call POST "/incidents/$INC/case/comments" "$DISP" '{"text":"поздно"}'; expect "комментарий к закрытой карточке" 409
-  OPEN_INC=$(psql "$DATABASE_URL" -Atqc "INSERT INTO incidents (trip_id, type, description) VALUES ($T1, 'NO_TELEMETRY', 'smoke-test-open') RETURNING id")
+  OPEN_INC=$(psql_exec "INSERT INTO incidents (trip_id, type, description) VALUES ($T1, 'NO_TELEMETRY', 'smoke-test-open') RETURNING id")
   call POST "/incidents/$OPEN_INC/case" "$DISP" '{"title":"Карточка открытого инцидента"}'; expect "карточка для открытого инцидента" 201
   call POST "/incidents/$OPEN_INC/case/close" "$DISP"; expect "закрыть карточку, пока инцидент OPEN в PostgreSQL" 409
   call POST "/incidents/999999/case" "$DISP" '{"title":"Нет такого инцидента"}'; expect "карточка несуществующего инцидента" 404
 
   # --- остановки (проекция PostgreSQL + геопоиск) и связь M:N «маршруты ↔ остановки»
-  S1=$(psql "$DATABASE_URL" -Atqc "INSERT INTO stops (name, latitude, longitude) VALUES ('Центральная', 50.4501, 30.5234) RETURNING id")
-  S2=$(psql "$DATABASE_URL" -Atqc "INSERT INTO stops (name, latitude, longitude) VALUES ('Вокзал', 50.4419, 30.5118) RETURNING id")
-  S3=$(psql "$DATABASE_URL" -Atqc "INSERT INTO stops (name, latitude, longitude) VALUES ('Университет', 50.4489, 30.5145) RETURNING id")
+  S1=$(psql_exec "INSERT INTO stops (name, latitude, longitude) VALUES ('Центральная', 50.4501, 30.5234) RETURNING id")
+  S2=$(psql_exec "INSERT INTO stops (name, latitude, longitude) VALUES ('Вокзал', 50.4419, 30.5118) RETURNING id")
+  S3=$(psql_exec "INSERT INTO stops (name, latitude, longitude) VALUES ('Университет', 50.4489, 30.5145) RETURNING id")
   call POST /stop-points "$ADMIN" "{\"stop_id\":$S1,\"attributes\":{\"shelter\":true,\"bench_count\":2}}"; expect "проекция остановки 1 (с гибкими атрибутами)" 201
   call POST /stop-points "$ADMIN" "{\"stop_id\":$S2}"; expect "проекция остановки 2" 201
   call POST /stop-points "$ADMIN" "{\"stop_id\":$S3}"; expect "проекция остановки 3" 201
@@ -146,7 +155,7 @@ if [ -n "${DATABASE_URL:-}" ]; then
   call DELETE "/route-profiles/$ROUTE2" "$ADMIN"; expect "удаление профиля маршрута 2" 204
   call DELETE "/stop-points/$S1" "$ADMIN"; expect "теперь проекцию можно удалить" 204
 else
-  echo "  (пропущено: задайте DATABASE_URL)"
+  echo "  (пропущено: SKIP_DB_STEPS)"
 fi
 
 echo; [ $FAILED = 0 ] && echo "ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ" || { echo "ЕСТЬ ОШИБКИ"; exit 1; }
